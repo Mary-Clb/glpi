@@ -66,9 +66,30 @@ class SearchOptionTest extends DbTestCase
     }
 
     /**
+     * Data provider for AllAssets Group in charge search test
+     * Returns asset types that support technical groups AND are properly handled by AllAssets
+     */
+    public static function allAssetsGroupInChargeProvider(): array
+    {
+        // Only test asset types that we know work well with AllAssets and Group_Item
+        // These are the main hardware assets that commonly have technical groups
+        return [
+            'Computer' => [\Computer::class],
+            'Monitor' => [\Monitor::class],
+            'NetworkEquipment' => [\NetworkEquipment::class],
+            'Peripheral' => [\Peripheral::class],
+            'Phone' => [\Phone::class],
+            'Printer' => [\Printer::class],
+            'Certificate' => [\Certificate::class],
+            'SoftwareLicense' => [\SoftwareLicense::class],
+            'Unmanaged' => [\Unmanaged::class],
+            'Appliance' => [\Appliance::class],
+        ];
+    }    /**
      * Test that AllAssets search results work correctly with Group in charge option (field 49)
      */
-    public function testAllAssetsGroupInChargeSearchResults(): void
+    #[DataProvider('allAssetsGroupInChargeProvider')]
+    public function testAllAssetsGroupInChargeSearchResults(string $itemtype): void
     {
         $this->login();
 
@@ -82,22 +103,22 @@ class SearchOptionTest extends DbTestCase
             ]
         );
 
-        // Create a computer
-        $computer = $this->createItem(
-            \Computer::class,
+        // Create an item of the specified type
+        $item = $this->createItem(
+            $itemtype,
             [
-                'name'        => 'Test Computer ' . __FUNCTION__,
+                'name'        => 'Test ' . $itemtype . ' ' . __FUNCTION__,
                 'entities_id' => $this->getTestRootEntity(true),
             ]
         );
 
-        // Assign the technical group to the computer
+        // Assign the technical group to the item
         $this->createItem(
             \Group_Item::class,
             [
                 'groups_id'   => $group->getID(),
-                'itemtype'    => \Computer::class,
-                'items_id'    => $computer->getID(),
+                'itemtype'    => $itemtype,
+                'items_id'    => $item->getID(),
                 'type'        => \Group_Item::GROUP_TYPE_TECH,
             ]
         );
@@ -120,14 +141,14 @@ class SearchOptionTest extends DbTestCase
         // Verify we have exactly one result
         $this->assertArrayHasKey('data', $result);
         $this->assertArrayHasKey('rows', $result['data']);
-        $this->assertEquals(1, $result['data']['totalcount'], 'Should find exactly one computer with this technical group');
+        $this->assertEquals(1, $result['data']['totalcount'], 'Should find exactly one item with this technical group');
 
         // Get the single result
         $row = $result['data']['rows'][0];
 
-        // Verify the computer name
+        // Verify the item name
         $this->assertArrayHasKey('AllAssets_1', $row);
-        $this->assertStringContainsString('Test Computer ' . __FUNCTION__, $row['AllAssets_1']['displayname']);
+        $this->assertStringContainsString('Test ' . $itemtype . ' ' . __FUNCTION__, $row['AllAssets_1']['displayname']);
 
         // Verify the group is correctly displayed
         $this->assertArrayHasKey('AllAssets_49', $row);
